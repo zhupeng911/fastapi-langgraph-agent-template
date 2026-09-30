@@ -34,7 +34,9 @@ class User(BaseModel, table=True):
     email: str = Field(unique=True, index=True)
     hashed_password: str
     username: Optional[str] = Field(default=None, index=False)
-    sessions: List["Session"] = Relationship(back_populates="user")  # 表示一个用户对应多个会话，本身不是数据库字段，不会生成一个 sessions 字段
+    sessions: List["Session"] = Relationship(
+        back_populates="user"
+    )  # 表示一个用户对应多个会话，本身不是数据库字段，不会生成一个 sessions 字段
 
     def verify_password(self, password: str) -> bool:
         """校验提供的密码是否与哈希值匹配."""
@@ -48,4 +50,4 @@ class User(BaseModel, table=True):
 
 
 # 避免循环导入
-from app.models.session import Session
+from app.models.session import Session # noqa: E402

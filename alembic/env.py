@@ -1,6 +1,6 @@
-"""Alembic 环境配置。
+"""Alembic 环境配置.
 
-从应用配置中加载数据库 URL，确保迁移配置与运行中的应用保持一致。
+从应用配置中加载数据库 URL，确保迁移配置与运行中的应用保持一致.
 """
 
 from logging.config import fileConfig
@@ -41,16 +41,16 @@ EXCLUDE_TABLES = {
 
 
 def include_object(object, name, type_, reflected, compare_to):
-    """过滤掉由外部系统管理的表。"""
+    """过滤掉由外部系统管理的表."""
     if type_ == "table" and name in EXCLUDE_TABLES:
         return False
     return True
 
 
 def run_migrations_offline() -> None:
-    """以“离线”模式运行迁移。
+    """以“离线”模式运行迁移.
 
-    将 SQL 输出到标准输出，而不是直接对数据库执行。
+    将 SQL 输出到标准输出，而不是直接对数据库执行.
     """
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
@@ -66,9 +66,9 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    """以“在线”模式运行迁移。
+    """以“在线”模式运行迁移.
 
-    创建数据库引擎，并针对正在运行的数据库执行迁移。
+    创建数据库引擎，并针对正在运行的数据库执行迁移.
     """
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
