@@ -18,6 +18,7 @@ from app.core.logging import logger
 # 服务启动初始化事件 todo
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """应用启动初始化事件."""
     logger.info(
         "application_startup",
         project_name=settings.PROJECT_NAME,
@@ -73,6 +74,7 @@ app.add_middleware(
 # 基础 API 信息测试
 @app.get("/")
 async def root():
+    """返回应用基础信息."""
     return {
         "name": settings.PROJECT_NAME,
         "version": settings.VERSION,

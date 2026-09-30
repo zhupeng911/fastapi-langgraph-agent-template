@@ -26,10 +26,12 @@ from app.core.config import (
     settings,
 )
 
-# 确保日志目录存在
+# 1.按需自动创建日志输出目录 /logs
 settings.LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-# 用于保存请求级数据的上下文变量
+# 2.ContextVar
+# 定义：一个全局的上下文变量
+# 功能：在 FastAPI 异步架构中安全地跨函数、跨协程传递和共享当前 HTTP 请求的上下文信息（如 request_id、user_id、客户端 IP ）
 _request_context: ContextVar[Optional[Dict[str, Any]]] = ContextVar("request_context", default=None)
 
 
@@ -103,6 +105,7 @@ def get_log_file_path() -> Path:
     return settings.LOG_DIR / f"{env_prefix}-{datetime.now().strftime('%Y-%m-%d')}.jsonl"
 
 
+# 3.定义 JsonlFileHandler
 class JsonlFileHandler(logging.Handler):
     """用于将 JSONL 日志写入每日文件的自定义处理器."""
 
@@ -245,16 +248,7 @@ def setup_logging() -> None:
         )
 
 
-# 初始化日志
+# 初始化日志，配置结构化日志
 setup_logging()
-
-# 创建日志实例
 logger = structlog.get_logger()
 log_level_name = "DEBUG" if settings.DEBUG else "INFO"
-logger.info(
-    "logging_initialized",
-    environment=settings.ENVIRONMENT.value,
-    log_level=log_level_name,
-    log_format=settings.LOG_FORMAT,
-    debug=settings.DEBUG,
-)

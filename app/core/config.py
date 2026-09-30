@@ -90,7 +90,7 @@ def parse_dict_of_lists_from_env(prefix, default_dict=None):
     result = default_dict or {}
     for key, value in os.environ.items():
         if key.startswith(prefix):
-            endpoint = key[len(prefix):].lower()  # 提取接口名称
+            endpoint = key[len(prefix) :].lower()  # 提取接口名称
             # 解析当前接口的配置值
             if value:
                 value = value.strip("\"'")
@@ -126,8 +126,9 @@ class Settings:
         self.ENVIRONMENT = get_environment()
         self.PROJECT_NAME = os.getenv("PROJECT_NAME", "fastapi-langgraph-agent-template")
         self.VERSION = os.getenv("VERSION", "1.0.0")
-        self.DESCRIPTION = os.getenv("DESCRIPTION",
-                                     "A production-ready FastAPI template with LangGraph and Langfuse integration")
+        self.DESCRIPTION = os.getenv(
+            "DESCRIPTION", "A production-ready FastAPI template with LangGraph and Langfuse integration"
+        )
         self.API_V1_STR = os.getenv("API_V1_STR", "/api/v1")
         self.DEBUG = os.getenv("DEBUG", "false").lower() in ("true", "1", "t", "yes")
         self.ALLOWED_ORIGINS = parse_list_from_env("ALLOWED_ORIGINS", ["*"])
