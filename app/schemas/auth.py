@@ -16,6 +16,7 @@ from pydantic import (
 )
 
 from app.schemas.base import BaseResponse
+from app.utils.sanitization import sanitize_string
 
 
 # Token令牌
@@ -61,6 +62,20 @@ class UserCreate(BaseModel):
     password: SecretStr = Field(..., description="User's password", min_length=8, max_length=64)
     username: str | None = Field(default=None, description="Optional display name", max_length=50)
 
+    # 邮箱验证器
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, email: EmailStr) -> EmailStr:
+        # 基础清理
+        email = sanitize_string(email)
+
+        # 确保邮箱格式正确（简单校验）
+        if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email):
+            raise ValueError("Invalid email format")
+
+        return email.lower()
+
+    # 密码验证器
     @field_validator("password")
     @classmethod
     def validate_password(cls, v: SecretStr) -> SecretStr:

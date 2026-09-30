@@ -1,6 +1,6 @@
 """应用主入口."""
-
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from fastapi import (
     FastAPI,
@@ -11,8 +11,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.v1.api import api_router
 from app.core.config import settings
 from app.core.logging import logger
+from app.services.database import database_service
 
 
 # 服务启动初始化事件 todo
@@ -69,6 +71,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(api_router, prefix=settings.API_V1_STR)
 
 
 # 基础 API 信息测试
@@ -83,3 +86,26 @@ async def root():
         "swagger_url": "/docs",
         "redoc_url": "/redoc",
     }
+
+
+# 健康检查
+@app.get("/health")
+async def health_check(request: Request) -> JSONResponse:
+    """检查应用和数据库的健康状态."""
+    logger.info("health_check_called")
+
+    # 检查数据库连接状态
+    db_healthy = await database_service.health_check()
+
+    response = {
+        "status": "healthy" if db_healthy else "degraded",
+        "version": settings.VERSION,
+        "environment": settings.ENVIRONMENT.value,
+        "components": {"api": "healthy", "database": "healthy" if db_healthy else "unhealthy"},
+        "timestamp": datetime.now().isoformat(),
+    }
+
+    # 数据库不健康时返回 503，便于负载均衡器摘除当前实例
+    status_code = status.HTTP_200_OK if db_healthy else status.HTTP_503_SERVICE_UNAVAILABLE
+
+    return JSONResponse(content=response, status_code=status_code)

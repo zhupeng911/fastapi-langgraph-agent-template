@@ -35,9 +35,7 @@ from app.utils.auth import (
     verify_token,
 )
 from app.utils.sanitization import (
-    sanitize_email,
-    sanitize_string,
-    validate_password_strength,
+    sanitize_string
 )
 
 # 初始化
@@ -47,9 +45,9 @@ db_service = database_service  # 数据库CRUD服务
 
 
 # 定义各类复用方法
-# 1.从令牌中获取当前用户
+# 1.从令牌中获取当前用户，有的接口使用登陆的token，比如/session  /sessions
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+        credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> User:
     """从令牌中获取当前用户.
 
@@ -96,9 +94,9 @@ async def get_current_user(
         )
 
 
-# 2.获取当前会话
+# 2.获取当前会话，有的接口使用会话token，比如/session/{session_id}、/session/{session_id}/name、聊天接口
 async def get_current_session(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+        credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> Session:
     """从令牌中获取当前会话.
 
@@ -158,18 +156,17 @@ async def register_user(request: Request, user_data: UserCreate):
     """
     try:
         # 字段清理与校验
-        sanitized_email = sanitize_email(user_data.email)
-        sanitized_username = sanitize_string(user_data.username) if user_data.username else None
+        email = user_data.email
+        user_name = sanitize_string(user_data.username) if user_data.username else None
         password = user_data.password.get_secret_value()
-        validate_password_strength(password)
-        if await db_service.get_user_by_email(sanitized_email):
+        if await db_service.get_user_by_email(email):
             raise HTTPException(status_code=400, detail="Email already registered")
 
         # 创建用户
         user = await db_service.create_user(
-            email=sanitized_email,
+            email=email,
             password=User.hash_password(password),
-            username=sanitized_username,
+            username=user_name,
         )
 
         # 创建访问令牌
@@ -183,7 +180,7 @@ async def register_user(request: Request, user_data: UserCreate):
 
 @auth_router.post("/login", response_model=TokenResponse)
 async def login(
-    request: Request, email: str = Form(...), password: str = Form(...), grant_type: str = Form(default="password")
+        request: Request, email: str = Form(...), password: str = Form(...), grant_type: str = Form(default="password")
 ):
     """用户登录.
 
@@ -250,7 +247,7 @@ async def create_session(user: User = Depends(get_current_user)):
 
 @auth_router.patch("/session/{session_id}/name", response_model=SessionResponse)
 async def update_session_name(
-    session_id: str, name: str = Form(...), current_session: Session = Depends(get_current_session)
+        session_id: str, name: str = Form(...), current_session: Session = Depends(get_current_session)
 ):
     """更新会话名称.
 

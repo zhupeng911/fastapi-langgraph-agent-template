@@ -34,25 +34,6 @@ def sanitize_string(value: str) -> str:
     return value
 
 
-def sanitize_email(email: str) -> str:
-    """清理邮箱地址.
-
-    参数：
-        email: 待清理的邮箱地址.
-
-    返回：
-        str: 清理后的邮箱地址.
-    """
-    # 基础清理
-    email = sanitize_string(email)
-
-    # 确保邮箱格式正确（简单校验）
-    if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email):
-        raise ValueError("Invalid email format")
-
-    return email.lower()
-
-
 def sanitize_dict(data: Dict[str, Any]) -> Dict[str, Any]:
     """递归清理字典中的所有字符串值.
 
@@ -95,33 +76,3 @@ def sanitize_list(data: List[Any]) -> List[Any]:
         else:
             sanitized.append(item)
     return sanitized
-
-
-def validate_password_strength(password: str) -> bool:
-    """校验密码强度.
-
-    参数：
-        password: 待校验的密码.
-
-    返回：
-        bool: 密码强度是否足够.
-
-    异常：
-        ValueError: 密码强度不足时抛出，并说明具体原因.
-    """
-    if len(password) < 8:
-        raise ValueError("Password must be at least 8 characters long")
-
-    if not re.search(r"[A-Z]", password):
-        raise ValueError("Password must contain at least one uppercase letter")
-
-    if not re.search(r"[a-z]", password):
-        raise ValueError("Password must contain at least one lowercase letter")
-
-    if not re.search(r"[0-9]", password):
-        raise ValueError("Password must contain at least one number")
-
-    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
-        raise ValueError("Password must contain at least one special character")
-
-    return True
