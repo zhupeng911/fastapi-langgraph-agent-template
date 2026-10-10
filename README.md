@@ -8,14 +8,6 @@
 
 ## 由 Atlas Cloud 驱动——可直接替换的 LangGraph Agent LLM 后端
 
-<div align="center">
-  <a href="https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=fastapi-langgraph-agent-production-ready-template">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/atlas-cloud-logo-dark.png"/>
-      <img src="docs/atlas-cloud-logo.png" alt="Atlas Cloud" width="200"/>
-    </picture>
-  </a>
-</div>
 
 [**Atlas Cloud**](https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=fastapi-langgraph-agent-production-ready-template) 提供与 **OpenAI 兼容的 LLM API**，可以无缝集成到这个 FastAPI + LangGraph 模板中，无需修改 Agent 图代码。只需替换 `OPENAI_BASE_URL` 和 `OPENAI_API_KEY`，即可通过统一端点使用 **DeepSeek、Qwen、GLM、Kimi、MiniMax、Gemini、Claude、GPT** 等模型。
 
