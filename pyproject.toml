@@ -41,6 +41,7 @@ dependencies = [
     "asgi-correlation-id>=4.3.4",
     "alembic>=1.18.4",
     "pytest>=9.1.1",
+    "redis>=8.1.0",
 ]
 
 [project.optional-dependencies]
