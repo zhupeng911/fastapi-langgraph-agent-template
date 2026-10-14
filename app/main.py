@@ -2,6 +2,7 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
 
+from dotenv import load_dotenv
 from fastapi import (
     FastAPI,
     Request,
@@ -12,22 +13,52 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.v1.api import api_router
+from app.api.v1.chatbot import agent
+from app.core.cache import cache_service
 from app.core.config import settings
 from app.core.logging import logger
+from app.core.metrics import setup_metrics
+from app.core.observability import langfuse_init
 from app.services.database import database_service
+from app.services.memory import memory_service
+
+# 加载环境变量
+load_dotenv()
 
 
-# 服务启动初始化事件 todo
+langfuse_init()
+
+
+# 服务启动初始化事件
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """应用启动初始化事件."""
-    logger.info(
-        "application_startup",
-        project_name=settings.PROJECT_NAME,
-        version=settings.VERSION,
-        api_prefix=settings.API_V1_STR,
-    )
+    # 初始化缓存服务；如果配置了 Valkey，则建立对应连接
+    try:
+        await cache_service.initialize()
+    except Exception as e:
+        logger.exception("cache_initialization_failed", error=str(e))
+
+    # 预热 LangGraph Agent，在启动时创建图和连接池，避免首次请求产生冷启动延迟
+    try:
+        await agent.create_graph()
+        logger.info("graph_pre_warmed")
+    except Exception as e:
+        logger.exception("graph_pre_warm_failed", error=str(e))
+
+    # 预热 mem0 AsyncMemory，初始化 pgvector 连接并检查数据表结构，避免首次 search() 缓存未命中或 add() 时产生初始化延迟
+    try:
+        await memory_service.initialize()
+    except Exception as e:
+        logger.exception("memory_service_pre_warm_failed", error=str(e))
+
     yield
+
+    # 应用关闭时释放资源
+    await cache_service.close()
+    if agent._connection_pool:
+        await agent._connection_pool.close()
+        logger.info("connection_pool_closed")
+    logger.info("application_shutdown")
 
 
 # 创建FastAPI应用实例
@@ -38,6 +69,27 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     lifespan=lifespan,
 )
+
+# 配置 Prometheus 监控指标
+setup_metrics(app)
+
+
+# 添加日志上下文中间件，确保在其他中间件之前捕获请求上下文
+# app.add_middleware(LoggingContextMiddleware)
+
+# 添加自定义指标中间件
+# app.add_middleware(MetricsMiddleware)
+
+# 仅在 DEBUG 模式下添加性能分析中间件；慢请求的分析结果会保存到 /tmp
+# if settings.DEBUG:
+# app.add_middleware(ProfilingMiddleware)
+
+# 添加请求关联 ID 中间件，必须位于最外层，以便在其他中间件执行前生成 request_id
+# app.add_middleware(CorrelationIdMiddleware)
+
+# 配置限流异常处理器
+# app.state.limiter = limiter
+# app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # pyright: ignore[reportArgumentType]
 
 
 # 请求参数校验异常处理器

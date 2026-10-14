@@ -42,7 +42,7 @@ class MemoryService:
     # 延迟初始化记忆组件：配置 pgvector 数据库连接、OpenAI LLM 和嵌入模型
     async def _get_memory(self) -> AsyncMemory | None:
         if self._memory is None:
-            self._memory = await AsyncMemory.from_config(  # type: ignore
+            self._memory = AsyncMemory.from_config(
                 config_dict={
                     "vector_store": {
                         "provider": "pgvector",

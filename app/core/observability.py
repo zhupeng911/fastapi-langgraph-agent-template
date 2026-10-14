@@ -13,6 +13,10 @@ def langfuse_init():
         logger.debug("langfuse_tracing_disabled")
         return
 
+    if not settings.LANGFUSE_PUBLIC_KEY or not settings.LANGFUSE_SECRET_KEY:
+        logger.warning("langfuse_tracing_disabled_missing_credentials")
+        return
+
     langfuse = Langfuse(
         tracing_enabled=settings.LANGFUSE_TRACING_ENABLED,
         public_key=settings.LANGFUSE_PUBLIC_KEY,
@@ -31,13 +35,17 @@ def langfuse_init():
         logger.exception("langfuse_auth_check_failed")
 
 
-def get_langfuse_callback_handler() -> CallbackHandler:
+def get_langfuse_callback_handler() -> CallbackHandler | None:
     """创建用于跟踪 LLM 交互的 Langfuse CallbackHandler.
 
     返回：
         CallbackHandler: 配置好的回调处理器.
     """
-    return CallbackHandler()
+    if not settings.LANGFUSE_TRACING_ENABLED:
+        return None
+    if not settings.LANGFUSE_PUBLIC_KEY or not settings.LANGFUSE_SECRET_KEY:
+        return None
+    return CallbackHandler(public_key=settings.LANGFUSE_PUBLIC_KEY)
 
 
 langfuse_callback_handler = get_langfuse_callback_handler()

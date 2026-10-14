@@ -278,7 +278,7 @@ class LangGraphAgent:
         graph = await self._get_graph()
 
         # 2. 配置回调处理程序
-        callbacks: list[BaseCallbackHandler] = [langfuse_callback_handler] if settings.LANGFUSE_TRACING_ENABLED else []
+        callbacks: list[BaseCallbackHandler] = [langfuse_callback_handler] if langfuse_callback_handler else []
 
         # 3. 配置可运行参数
         config: RunnableConfig = {
@@ -357,7 +357,7 @@ class LangGraphAgent:
         graph = await self._get_graph()
 
         # 2. 配置回调处理程序
-        callbacks: list[BaseCallbackHandler] = [langfuse_callback_handler] if settings.LANGFUSE_TRACING_ENABLED else []
+        callbacks: list[BaseCallbackHandler] = [langfuse_callback_handler] if langfuse_callback_handler else []
 
         # 3. 配置可运行参数
         config: RunnableConfig = {

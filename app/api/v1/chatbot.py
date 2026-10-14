@@ -36,8 +36,8 @@ agent = LangGraphAgent()
 @chatbot_router.post("/chat", response_model=ChatResponse)
 async def chat(
         request: Request,
-        chat_request: ChatRequest,  # 2.校验请求体
-        session: Session = Depends(get_current_session),  # 3.校验Jwt 获取session
+        chat_request: ChatRequest,
+        session: Session = Depends(get_current_session),
 ):
     """使用 LangGraph 处理聊天请求.
 
