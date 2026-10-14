@@ -41,6 +41,14 @@ class MemoryService:
 
     # 延迟初始化记忆组件：配置 pgvector 数据库连接、OpenAI LLM 和嵌入模型
     async def _get_memory(self) -> AsyncMemory | None:
+        if not settings.LONG_TERM_MEMORY_ENABLED:
+            return None
+        if not settings.LONG_TERM_MEMORY_EMBEDDER_API_KEY or not settings.LONG_TERM_MEMORY_EMBEDDER_BASE_URL:
+            logger.warning(
+                "long_term_memory_disabled_missing_embedder_config",
+                required=["LONG_TERM_MEMORY_EMBEDDER_API_KEY", "LONG_TERM_MEMORY_EMBEDDER_BASE_URL"],
+            )
+            return None
         if self._memory is None:
             self._memory = AsyncMemory.from_config(
                 config_dict={
@@ -57,11 +65,19 @@ class MemoryService:
                     },
                     "llm": {
                         "provider": "openai",
-                        "config": {"model": settings.LONG_TERM_MEMORY_MODEL},
+                        "config": {
+                            "model": settings.LONG_TERM_MEMORY_MODEL,
+                            "api_key": settings.LONG_TERM_MEMORY_LLM_API_KEY,
+                            "openai_base_url": settings.LONG_TERM_MEMORY_LLM_BASE_URL,
+                        },
                     },
                     "embedder": {
                         "provider": "openai",
-                        "config": {"model": settings.LONG_TERM_MEMORY_EMBEDDER_MODEL},
+                        "config": {
+                            "model": settings.LONG_TERM_MEMORY_EMBEDDER_MODEL,
+                            "api_key": settings.LONG_TERM_MEMORY_EMBEDDER_API_KEY,
+                            "openai_base_url": settings.LONG_TERM_MEMORY_EMBEDDER_BASE_URL,
+                        },
                     },
                 }
             )
@@ -73,6 +89,8 @@ class MemoryService:
         在应用启动时调用一次，避免首次 search() 或 add() 承担 from_config 和
         pgvector.list_cols() 初始化产生的约 130 毫秒冷启动开销.
         """
+        if not settings.LONG_TERM_MEMORY_ENABLED:
+            return
         await self._get_memory()
 
     async def search(self, user_id: str | None, query: str) -> str:
@@ -85,6 +103,8 @@ class MemoryService:
         """
         if user_id is None:
             return ""
+        if not settings.LONG_TERM_MEMORY_ENABLED:
+            return ""
         try:
             # 优先检查缓存
             key = cache_key("memory", str(user_id), query)
@@ -93,6 +113,8 @@ class MemoryService:
                 return cached
 
             memory = await self._get_memory()
+            if memory is None:
+                return ""
             results = await memory.search(user_id=str(user_id), query=query)
             result = "\n".join([f"* {r['memory']}" for r in results["results"]])
 
@@ -111,8 +133,12 @@ class MemoryService:
         """
         if user_id is None:
             return
+        if not settings.LONG_TERM_MEMORY_ENABLED:
+            return
         try:
             memory = await self._get_memory()
+            if memory is None:
+                return
             await memory.add(messages, user_id=str(user_id), metadata=metadata)
         except Exception as e:
             logger.exception("failed_to_update_long_term_memory", user_id=user_id, error=str(e))

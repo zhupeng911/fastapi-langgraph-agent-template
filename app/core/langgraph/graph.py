@@ -294,14 +294,13 @@ class LangGraphAgent:
         }
 
         try:
-            # 并发执行状态检查和记忆搜索，节省 200-500 毫秒
+            # 并行读取会话状态和长期记忆
             state, relevant_memory = await asyncio.gather(
-                graph.aget_state(config),
-                memory_service.search(user_id, messages[-1].content),
+                graph.aget_state(config), # 读取 Checkpointer 状态
+                memory_service.search(user_id, messages[-1].content), # 搜索长期记忆，先查缓存，缓存未命中时查询 mem0 和 pgvector
             )
 
-            if state.next:
-                logger.info("resuming_interrupted_graph", session_id=session_id, next_nodes=state.next)
+            if state.next: # 如果存在中断的图
                 response = await graph.ainvoke(
                     Command(resume=messages[-1].content),
                     config=config,

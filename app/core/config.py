@@ -154,6 +154,7 @@ class Settings:
 
         # 大模型配置
         self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+        self.OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
         self.DEFAULT_LLM_MODEL = os.getenv("DEFAULT_LLM_MODEL", "deepseek-flash")
         self.SESSION_NAMING_ENABLED = os.getenv("SESSION_NAMING_ENABLED", "true").lower() == "true"
         self.DEFAULT_LLM_TEMPERATURE = float(os.getenv("DEFAULT_LLM_TEMPERATURE", "0.2"))
@@ -162,9 +163,14 @@ class Settings:
         self.LLM_TOTAL_TIMEOUT = int(os.getenv("LLM_TOTAL_TIMEOUT", "60"))
 
         # 长期记忆配置
+        self.LONG_TERM_MEMORY_ENABLED = os.getenv("LONG_TERM_MEMORY_ENABLED", "false").lower() in ("true", "1", "t", "yes")
         self.LONG_TERM_MEMORY_MODEL = os.getenv("LONG_TERM_MEMORY_MODEL", "gpt-5-nano")
         self.LONG_TERM_MEMORY_EMBEDDER_MODEL = os.getenv("LONG_TERM_MEMORY_EMBEDDER_MODEL", "text-embedding-3-small")
         self.LONG_TERM_MEMORY_COLLECTION_NAME = os.getenv("LONG_TERM_MEMORY_COLLECTION_NAME", "longterm_memory")
+        self.LONG_TERM_MEMORY_LLM_API_KEY = os.getenv("LONG_TERM_MEMORY_LLM_API_KEY", self.OPENAI_API_KEY)
+        self.LONG_TERM_MEMORY_LLM_BASE_URL = os.getenv("LONG_TERM_MEMORY_LLM_BASE_URL", self.OPENAI_BASE_URL)
+        self.LONG_TERM_MEMORY_EMBEDDER_API_KEY = os.getenv("LONG_TERM_MEMORY_EMBEDDER_API_KEY", "")
+        self.LONG_TERM_MEMORY_EMBEDDER_BASE_URL = os.getenv("LONG_TERM_MEMORY_EMBEDDER_BASE_URL", "")
 
         # JWT 配置
         self.JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")

@@ -163,6 +163,10 @@ class LLMService:
             self._llm = self._llm.bind_tools(tools)
         return self
 
+    def get_llm(self) -> Any:
+        """返回当前实际使用的 LLM 实例。"""
+        return self._llm
+
     # 多模型循环回退
     # 回退顺序：deepseek-flash -> deepseek-v4-pro -> RuntimeError
     # 回退顺序由 LLMRegistry.LLMS 的顺序决定，最多尝试一轮所有模型，避免无限循环

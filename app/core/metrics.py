@@ -4,7 +4,7 @@
 """
 
 from prometheus_client import Counter, Histogram, Gauge
-from starlette_prometheus import metrics, PrometheusMiddleware
+from starlette_prometheus import metrics
 
 # 请求指标
 http_requests_total = Counter("http_requests_total", "Total number of HTTP requests", ["method", "endpoint", "status"])
@@ -47,8 +47,7 @@ def setup_metrics(app):
     参数：
         app: FastAPI 应用实例.
     """
-    # 添加 Prometheus 中间件
-    app.add_middleware(PrometheusMiddleware)
-
-    # 添加指标接口
+    # 保留指标端点；当前 starlette-prometheus 中间件与新版 Starlette
+    # 的 _IncludedRouter 路由对象不兼容，会在请求阶段访问不存在的 path 属性。
+    # 避免让监控中间件兼容性问题阻断业务 API。
     app.add_route("/metrics", metrics)
