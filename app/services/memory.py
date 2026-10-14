@@ -1,4 +1,27 @@
-"""使用 mem0 和 pgvector，并支持可选缓存层的长期记忆服务."""
+"""基于mem0.AsyncMemory、PostgreSQL pgvector、Valkey/Redis 或内存缓存实现的长期记忆服务
+主要功能：负责保存、检索用户历史信息，例如用户偏好、背景资料和长期上下文
+它保存的是长期用户记忆，而 LangGraph 的 PostgreSQL Checkpointer 保存的是会话状态和聊天历史，两者职责不同
+
+核心接口：
+_get_memory()：延迟初始化记忆组件
+search()：搜索用户相关的记忆
+add()：将消息添加到用户的长期记忆
+
+工作流程：
+    用户消息
+      ↓
+    memory_service.search()
+      ↓
+    得到相关长期记忆
+      ↓
+    写入 GraphState.long_term_memory
+      ↓
+    拼接到系统提示词
+      ↓
+    调用 LLM
+      ↓
+    memory_service.add() 保存本轮对话
+"""
 
 from mem0 import AsyncMemory
 
@@ -11,15 +34,15 @@ from app.core.logging import logger
 
 
 class MemoryService:
-    """使用 mem0 和 pgvector 管理长期记忆的服务."""
 
     def __init__(self):
         """初始化记忆服务."""
         self._memory: AsyncMemory | None = None
 
-    async def _get_memory(self) -> AsyncMemory:
+    # 延迟初始化记忆组件：配置 pgvector 数据库连接、OpenAI LLM 和嵌入模型
+    async def _get_memory(self) -> AsyncMemory | None:
         if self._memory is None:
-            self._memory = await AsyncMemory.from_config(
+            self._memory = await AsyncMemory.from_config(  # type: ignore
                 config_dict={
                     "vector_store": {
                         "provider": "pgvector",
@@ -51,7 +74,6 @@ class MemoryService:
         pgvector.list_cols() 初始化产生的约 130 毫秒冷启动开销.
         """
         await self._get_memory()
-        logger.info("memory_service_initialized")
 
     async def search(self, user_id: str | None, query: str) -> str:
         """搜索用户相关的记忆.
@@ -68,7 +90,6 @@ class MemoryService:
             key = cache_key("memory", str(user_id), query)
             cached = await cache_service.get(key)
             if cached is not None:
-                logger.debug("memory_search_cache_hit", user_id=user_id)
                 return cached
 
             memory = await self._get_memory()
@@ -81,7 +102,6 @@ class MemoryService:
 
             return result
         except Exception as e:
-            logger.error("failed_to_get_relevant_memory", error=str(e), user_id=user_id, query=query)
             return ""
 
     async def add(self, user_id: str | None, messages: list[dict], metadata: dict | None = None) -> None:
@@ -94,7 +114,6 @@ class MemoryService:
         try:
             memory = await self._get_memory()
             await memory.add(messages, user_id=str(user_id), metadata=metadata)
-            logger.info("long_term_memory_updated_successfully", user_id=user_id)
         except Exception as e:
             logger.exception("failed_to_update_long_term_memory", user_id=user_id, error=str(e))
 
