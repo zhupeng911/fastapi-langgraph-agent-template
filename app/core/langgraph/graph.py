@@ -183,7 +183,7 @@ class LangGraphAgent:
             return Command(update={"messages": [response_message]}, goto=goto)
         except Exception as e:
             logger.error(
-                "llm_call_failed_all_models",
+                "所有大模型调用均失败",
                 session_id=thread_id,
                 error=str(e),
                 environment=settings.ENVIRONMENT.value,
@@ -294,13 +294,14 @@ class LangGraphAgent:
         }
 
         try:
-            # 并行读取会话状态和长期记忆
+            # 并行读取会话状态checkpointer
+            # 并行搜索长期记忆：先查缓存，缓存未命中时查询pgvector
             state, relevant_memory = await asyncio.gather(
-                graph.aget_state(config), # 读取 Checkpointer 状态
-                memory_service.search(user_id, messages[-1].content), # 搜索长期记忆，先查缓存，缓存未命中时查询 mem0 和 pgvector
+                graph.aget_state(config),
+                memory_service.search(user_id, messages[-1].content),
             )
 
-            if state.next: # 如果存在中断的图
+            if state.next:  # 如果存在中断的图
                 response = await graph.ainvoke(
                     Command(resume=messages[-1].content),
                     config=config,
@@ -316,7 +317,7 @@ class LangGraphAgent:
             state = await graph.aget_state(config)
             if state.next:
                 interrupt_value = state.tasks[0].interrupts[0].value if state.tasks else "Waiting for input."
-                logger.info("graph_interrupted", session_id=session_id, interrupt_value=str(interrupt_value))
+                logger.info("图执行已中断", session_id=session_id, interrupt_value=str(interrupt_value))
                 return [Message(role="assistant", content=str(interrupt_value))]
 
             openai_msgs = cast(list[dict], convert_to_openai_messages(response["messages"]))
@@ -326,11 +327,11 @@ class LangGraphAgent:
         except GraphInterrupt:
             state = await graph.aget_state(config)
             interrupt_value = state.tasks[0].interrupts[0].value if state.tasks else "Waiting for input."
-            logger.info("graph_interrupted", session_id=session_id, interrupt_value=str(interrupt_value))
+            logger.info("图执行已中断", session_id=session_id, interrupt_value=str(interrupt_value))
             return [Message(role="assistant", content=str(interrupt_value))]
 
         except Exception as e:
-            logger.exception("get_response_failed", error=str(e), session_id=session_id)
+            logger.exception("获取非流式响应失败", error=str(e), session_id=session_id)
             raise
 
     # 对外提供接口：流式响应
@@ -379,7 +380,7 @@ class LangGraphAgent:
             )
 
             if state.next:
-                logger.info("resuming_interrupted_graph_stream", session_id=session_id, next_nodes=state.next)
+                logger.info("正在恢复中断的流式图执行", session_id=session_id, next_nodes=state.next)
                 graph_input = Command(resume=messages[-1].content)
             else:
                 relevant_memory = relevant_memory or "No relevant memory found."
@@ -401,7 +402,7 @@ class LangGraphAgent:
             state = await graph.aget_state(config)
             if state.next:
                 interrupt_value = state.tasks[0].interrupts[0].value if state.tasks else "Waiting for input."
-                logger.info("graph_interrupted_stream", session_id=session_id, interrupt_value=str(interrupt_value))
+                logger.info("流式图执行已中断", session_id=session_id, interrupt_value=str(interrupt_value))
                 yield str(interrupt_value)
             elif state.values and "messages" in state.values:
                 openai_msgs = cast(list[dict], convert_to_openai_messages(state.values["messages"]))
@@ -409,10 +410,10 @@ class LangGraphAgent:
         except GraphInterrupt:
             state = await graph.aget_state(config)
             interrupt_value = state.tasks[0].interrupts[0].value if state.tasks else "Waiting for input."
-            logger.info("graph_interrupted_stream", session_id=session_id, interrupt_value=str(interrupt_value))
+            logger.info("流式图执行已中断", session_id=session_id, interrupt_value=str(interrupt_value))
             yield str(interrupt_value)
         except Exception as stream_error:
-            logger.exception("stream_processing_failed", error=str(stream_error), session_id=session_id)
+            logger.exception("流式响应处理失败", error=str(stream_error), session_id=session_id)
             raise stream_error
 
     # 对外提供接口：获取聊天历史

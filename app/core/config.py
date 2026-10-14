@@ -164,9 +164,10 @@ class Settings:
 
         # 长期记忆配置
         self.LONG_TERM_MEMORY_ENABLED = os.getenv("LONG_TERM_MEMORY_ENABLED", "false").lower() in ("true", "1", "t", "yes")
-        self.LONG_TERM_MEMORY_MODEL = os.getenv("LONG_TERM_MEMORY_MODEL", "gpt-5-nano")
-        self.LONG_TERM_MEMORY_EMBEDDER_MODEL = os.getenv("LONG_TERM_MEMORY_EMBEDDER_MODEL", "text-embedding-3-small")
-        self.LONG_TERM_MEMORY_COLLECTION_NAME = os.getenv("LONG_TERM_MEMORY_COLLECTION_NAME", "longterm_memory")
+        self.LONG_TERM_MEMORY_MODEL = os.getenv("LONG_TERM_MEMORY_MODEL", "deepseek-flash")
+        self.LONG_TERM_MEMORY_EMBEDDER_MODEL = os.getenv("LONG_TERM_MEMORY_EMBEDDER_MODEL", "qwen3.7-text-embedding-flash")
+        self.LONG_TERM_MEMORY_EMBEDDER_DIMENSIONS = int(os.getenv("LONG_TERM_MEMORY_EMBEDDER_DIMENSIONS", "1024"))
+        self.LONG_TERM_MEMORY_COLLECTION_NAME = os.getenv("LONG_TERM_MEMORY_COLLECTION_NAME", "longterm_memory_1024")
         self.LONG_TERM_MEMORY_LLM_API_KEY = os.getenv("LONG_TERM_MEMORY_LLM_API_KEY", self.OPENAI_API_KEY)
         self.LONG_TERM_MEMORY_LLM_BASE_URL = os.getenv("LONG_TERM_MEMORY_LLM_BASE_URL", self.OPENAI_BASE_URL)
         self.LONG_TERM_MEMORY_EMBEDDER_API_KEY = os.getenv("LONG_TERM_MEMORY_EMBEDDER_API_KEY", "")

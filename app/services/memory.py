@@ -45,17 +45,19 @@ class MemoryService:
             return None
         if not settings.LONG_TERM_MEMORY_EMBEDDER_API_KEY or not settings.LONG_TERM_MEMORY_EMBEDDER_BASE_URL:
             logger.warning(
-                "long_term_memory_disabled_missing_embedder_config",
+                "长期记忆配置缺失，已跳过初始化",
                 required=["LONG_TERM_MEMORY_EMBEDDER_API_KEY", "LONG_TERM_MEMORY_EMBEDDER_BASE_URL"],
             )
             return None
         if self._memory is None:
+            # AsyncMemory 是 mem0 提供的异步长期记忆管理对象，负责把用户对话转换成可长期保存、可语义检索的用户记忆
             self._memory = AsyncMemory.from_config(
                 config_dict={
-                    "vector_store": {
+                    "vector_store": {  # 保存和搜索向量，当前使用 PostgreSQL + pgvector
                         "provider": "pgvector",
                         "config": {
                             "collection_name": settings.LONG_TERM_MEMORY_COLLECTION_NAME,
+                            "embedding_model_dims": settings.LONG_TERM_MEMORY_EMBEDDER_DIMENSIONS,
                             "dbname": settings.POSTGRES_DB,
                             "user": settings.POSTGRES_USER,
                             "password": settings.POSTGRES_PASSWORD,
@@ -63,7 +65,7 @@ class MemoryService:
                             "port": settings.POSTGRES_PORT,
                         },
                     },
-                    "llm": {
+                    "llm": {  # 判断对话中哪些内容应该保存为记忆
                         "provider": "openai",
                         "config": {
                             "model": settings.LONG_TERM_MEMORY_MODEL,
@@ -71,7 +73,7 @@ class MemoryService:
                             "openai_base_url": settings.LONG_TERM_MEMORY_LLM_BASE_URL,
                         },
                     },
-                    "embedder": {
+                    "embedder": {  # 用于生成向量的嵌入模型
                         "provider": "openai",
                         "config": {
                             "model": settings.LONG_TERM_MEMORY_EMBEDDER_MODEL,
@@ -106,24 +108,32 @@ class MemoryService:
         if not settings.LONG_TERM_MEMORY_ENABLED:
             return ""
         try:
-            # 优先检查缓存
+            # 优先检查redis长期记忆缓存
             key = cache_key("memory", str(user_id), query)
             cached = await cache_service.get(key)
             if cached is not None:
+                logger.info("长期记忆搜索命中缓存", user_id=user_id, cache_key=key)
                 return cached
+            logger.info("长期记忆搜索未命中缓存", user_id=user_id, cache_key=key)
 
+            # 再查询mem0长期记忆，在PostgreSQL + pgvector中
             memory = await self._get_memory()
             if memory is None:
                 return ""
-            results = await memory.search(user_id=str(user_id), query=query)
-            result = "\n".join([f"* {r['memory']}" for r in results["results"]])
+            results = await memory.search(query=query, filters={"user_id": str(user_id)})
+            memories = results.get("results", []) if isinstance(results, dict) else []
+            result = "\n".join([f"* {r['memory']}" for r in memories])
 
-            # 仅缓存成功结果
+            # 缓存成功结果到redis
             if result:
                 await cache_service.set(key, result)
+                logger.info("长期记忆搜索结果已写入缓存", user_id=user_id, cache_key=key)
+            else:
+                logger.info("长期记忆搜索结果为空，跳过缓存写入", user_id=user_id, cache_key=key)
 
             return result
         except Exception as e:
+            logger.exception("搜索长期记忆失败", user_id=user_id, error=str(e))
             return ""
 
     async def add(self, user_id: str | None, messages: list[dict], metadata: dict | None = None) -> None:
@@ -141,7 +151,7 @@ class MemoryService:
                 return
             await memory.add(messages, user_id=str(user_id), metadata=metadata)
         except Exception as e:
-            logger.exception("failed_to_update_long_term_memory", user_id=user_id, error=str(e))
+            logger.exception("更新长期记忆失败", user_id=user_id, error=str(e))
 
 
 memory_service = MemoryService()
