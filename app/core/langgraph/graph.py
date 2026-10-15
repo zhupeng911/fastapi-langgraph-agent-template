@@ -241,7 +241,7 @@ class LangGraphAgent:
                 graph_builder.set_entry_point("chat")
                 graph_builder.set_finish_point("chat")
 
-                # 4.连接池无法创建时抛出异常；没有检查点保存器就不提供服务.
+                # 4.基于pg实现的检查点保存器checkpointer
                 connection_pool = await self._get_connection_pool()
                 checkpointer = AsyncPostgresSaver(connection_pool)
                 await checkpointer.setup()
@@ -277,13 +277,11 @@ class LangGraphAgent:
         # 1. 获取LangGraph图
         graph = await self._get_graph()
 
-        # 2. 配置回调处理程序
-        callbacks: list[BaseCallbackHandler] = [langfuse_callback_handler] if langfuse_callback_handler else []
-
-        # 3. 配置可运行参数
+        # 2. 配置可运行参数
+        # callbacks：传入 Langfuse 回调处理器，用于自动追踪、记录和分析大模型及各节点的执行耗时、Token 消耗和调用链路
         config: RunnableConfig = {
             "configurable": {"thread_id": session_id},
-            "callbacks": callbacks,
+            "callbacks": [langfuse_callback_handler] if langfuse_callback_handler else [],
             "metadata": {
                 "user_id": user_id,
                 "username": username,
@@ -294,8 +292,8 @@ class LangGraphAgent:
         }
 
         try:
-            # 并行读取会话状态checkpointer
-            # 并行搜索长期记忆：先查缓存，缓存未命中时查询pgvector
+            # 3.并行读取会话状态checkpointer
+            # 3.并行搜索长期记忆：先查缓存，缓存未命中时查询pgvector
             state, relevant_memory = await asyncio.gather(
                 graph.aget_state(config),
                 memory_service.search(user_id, messages[-1].content),
@@ -313,11 +311,10 @@ class LangGraphAgent:
                     config=config,
                 )
 
-            # 检查本次调用期间图是否被中断
+            # 4.检查本次调用期间图是否被中断
             state = await graph.aget_state(config)
             if state.next:
                 interrupt_value = state.tasks[0].interrupts[0].value if state.tasks else "Waiting for input."
-                logger.info("图执行已中断", session_id=session_id, interrupt_value=str(interrupt_value))
                 return [Message(role="assistant", content=str(interrupt_value))]
 
             openai_msgs = cast(list[dict], convert_to_openai_messages(response["messages"]))
