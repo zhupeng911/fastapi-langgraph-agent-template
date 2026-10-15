@@ -436,7 +436,7 @@ class LangGraphAgent:
                             sql.SQL("DELETE FROM {} WHERE thread_id = %s").format(sql.Identifier(table)),
                             (session_id,),
                         )
-                logger.info("checkpoint清理成功", tables=settings.CHECKPOINT_TABLES, session_id=session_id)
+                logger.info("检查点清理成功", tables=settings.CHECKPOINT_TABLES, session_id=session_id)
 
         except Exception as e:
             logger.error("清理聊天历史失败", session_id=session_id, error=str(e))

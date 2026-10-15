@@ -39,6 +39,10 @@ def get_langfuse_callback_handler() -> CallbackHandler | None:
     """创建用于跟踪 LLM 交互的 Langfuse CallbackHandler.
 
     返回：
+        - 输入消息和输出
+        - 令牌使用量和费用
+        - 每次调用和每个会话的延迟
+        - 模型名称、temperature 和其他参数
         CallbackHandler: 配置好的回调处理器.
     """
     if not settings.LANGFUSE_TRACING_ENABLED:

@@ -103,15 +103,69 @@ graph LR
 
 **记忆搜索和状态检查并发执行.** 每次未恢复的请求都会通过 `asyncio.gather` 并行执行 `aget_state`（检查是否存在中断）和 `memory.search`（获取相关记忆），每次请求可节省 200–500 毫秒.
 
+```python
+state, relevant_memory = await asyncio.gather(
+	graph.aget_state(config),
+	memory_service.search(user_id, messages[-1].content),
+)
+```
+
+
+
 **工具调用并发执行.** 当 LLM 在一次响应中返回多个工具调用时，所有工具都会通过 `asyncio.gather` 并行执行.
+
+```py
+ 			# 存在多个工具调用时并发执行
+        if len(tool_calls) == 1:
+            outputs = [await _execute_tool(tool_calls[0])]
+        else:
+            outputs = list(await asyncio.gather(*[_execute_tool(tc) for tc in tool_calls]))
+```
+
+
 
 **系统提示词在模块加载时缓存.** `system.md` 在启动时只读取一次.每次请求只需使用用户名、当前日期时间和检索到的记忆执行 `.format()`，不会产生文件 I/O.
 
-**LLM 回退受时间限制.** 整个回退循环（重试次数 × 模型数量）都通过 `asyncio.wait_for(timeout=LLM_TOTAL_TIMEOUT)` 包装，避免无限等待.
+
+
+**LLM 回退受时间限制.** 整个回退循环（重试次数 × 模型数量）都通过 `asyncio.wait_for(timeout=LLM_TOTAL_TIMEOUT)` 包装，避免无限等待，单模型自动重试、多模型循环回退机制
+
+```
+return await asyncio.wait_for(
+		self._call_with_fallback(messages, model_name, response_format, model_kwargs),
+		timeout=settings.LLM_TOTAL_TIMEOUT,  # 总超时控制, 默认60s
+)
+```
+
+![image-20261015111308678](./images/image-20261015111308678.png)
+
+![image-20261015111331452](./images/image-20261015111331452.png)
 
 **用户名通过会话传递，而不是每次请求查询数据库.** 创建会话时将用户显示名称复制到 `Session.username`.聊天请求直接从已经加载的会话对象读取用户名，不产生额外查询.
 
+
+
 **会话标题生成不增加主请求延迟.** 未命名会话收到第一条消息时，API 会先使用占位名称原子占用会话（占位名称是用户消息的截断版本），然后启动后台 `asyncio.Task`，使用结构化输出调用快速 nano 模型.主聊天响应会立即返回，标题生成在后台并行执行.Postgres 中的原子 `UPDATE … WHERE name = ''` 确保并发请求下只有一个 Worker 能成功占用会话.
+
+```python
+def maybe_name_session(session_id: str, session_name: str, messages: list) -> None:
+    """会话未命名时触发自动命名.
+
+    可从任意聊天接口安全调用；同一会话的并发调用会通过 Postgres 占用机制去重.
+    """
+    if session_name:
+        return
+    first_user_msg = next((m.content for m in messages if m.role == "user"), None)
+    if not first_user_msg:
+        return
+    if _claim_session(session_id, _build_placeholder(first_user_msg)):
+        task = asyncio.create_task(_persist_session_name(session_id, first_user_msg))
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+
+```
+
+
 
 ## 组件职责
 
